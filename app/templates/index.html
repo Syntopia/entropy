@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Transition State Theory Visualizer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        font-family: "Inter", Arial, sans-serif;
+        color: #1f2933;
+        background-color: #f8fafc;
+      }
+
+      body {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+
+      header {
+        padding: 1.2rem 1.5rem;
+        background: linear-gradient(90deg, #0f172a, #1e293b);
+        color: #f9fafb;
+        box-shadow: 0 2px 4px rgba(15, 23, 42, 0.2);
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 1.8rem;
+      }
+
+      main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 1rem 1.5rem 2rem;
+        gap: 1rem;
+      }
+
+      #layout {
+        display: grid;
+        grid-template-columns: minmax(260px, 320px) minmax(400px, 1fr);
+        gap: 1.25rem;
+      }
+
+      #controls, #analysis {
+        background: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+        padding: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      #viewer {
+        position: relative;
+        background: #0f172a;
+        border-radius: 12px;
+        overflow: hidden;
+        min-height: 520px;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+      }
+
+      #viewer canvas {
+        display: block;
+      }
+
+      fieldset {
+        border: 1px solid rgba(15, 23, 42, 0.08);
+        border-radius: 10px;
+        padding: 0.75rem 1rem 1rem;
+        background: rgba(241, 245, 249, 0.35);
+      }
+
+      legend {
+        font-weight: 600;
+        padding: 0 0.25rem;
+      }
+
+      .control {
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 0.65rem;
+      }
+
+      .control label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        display: flex;
+        justify-content: space-between;
+        color: #334155;
+      }
+
+      .control input[type="range"] {
+        width: 100%;
+      }
+
+      .control output {
+        font-weight: 500;
+      }
+
+      .state-info {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+
+      .state-card {
+        background: rgba(226, 232, 240, 0.4);
+        border-radius: 10px;
+        padding: 0.75rem;
+        border: 1px solid rgba(148, 163, 184, 0.45);
+      }
+
+      .state-card h3 {
+        margin: 0 0 0.35rem;
+        font-size: 0.95rem;
+      }
+
+      #meta-info {
+        display: grid;
+        gap: 0.6rem;
+        font-size: 0.9rem;
+      }
+
+      #meta-info strong {
+        color: #0f172a;
+      }
+
+      #chart-wrapper {
+        background: rgba(241, 245, 249, 0.6);
+        border-radius: 10px;
+        padding: 0.75rem;
+        border: 1px solid rgba(203, 213, 225, 0.6);
+      }
+
+      #umbrella-details summary {
+        cursor: pointer;
+        font-weight: 600;
+        color: #1e3a8a;
+      }
+
+      #umbrella-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-height: 240px;
+        overflow-y: auto;
+        padding-right: 0.5rem;
+      }
+
+      #status-panel {
+        background: rgba(30, 41, 59, 0.85);
+        color: #f8fafc;
+        position: absolute;
+        bottom: 1rem;
+        left: 1rem;
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.35);
+        pointer-events: none;
+        opacity: 0.92;
+      }
+
+      @media (max-width: 900px) {
+        #layout {
+          grid-template-columns: 1fr;
+        }
+
+        #viewer {
+          min-height: 400px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Transition State Theory Visualizer</h1>
+      <p style="margin: 0; opacity: 0.8; font-size: 0.95rem;">
+        Explore potential energy surfaces, minimum energy pathways and umbrella sampling interactively.
+      </p>
+    </header>
+    <main>
+      <div id="layout">
+        <section id="controls">
+          <h2 style="margin: 0; font-size: 1.2rem;">Gaussian Potentials</h2>
+          <p style="margin: 0; font-size: 0.9rem; color: #475569;">
+            Adjust the amplitudes, widths and positions of the Gaussian features to reshape the potential energy surface.
+          </p>
+          <div id="gaussian-controls"></div>
+          <button id="reset-button" style="padding: 0.6rem 1rem; border-radius: 999px; border: none; background: #1d4ed8; color: white; font-weight: 600; cursor: pointer; align-self: flex-start;">
+            Reset to defaults
+          </button>
+        </section>
+        <div id="viewer">
+          <div id="status-panel">
+            <div><strong>Transition energy:</strong> <span id="transition-energy">–</span></div>
+            <div><strong>Reaction coordinate:</strong> <span id="transition-coordinate">–</span></div>
+            <div><strong>NEB iterations:</strong> <span id="neb-iterations">–</span></div>
+          </div>
+        </div>
+      </div>
+      <section id="analysis">
+        <h2 style="margin: 0; font-size: 1.2rem;">Analysis</h2>
+        <div id="meta-info">
+          <div class="state-info">
+            <div class="state-card" style="border-color: rgba(14,116,144,0.45);">
+              <h3>State A</h3>
+              <div>Center: (<span id="stateA-x">0</span>, <span id="stateA-y">0</span>)</div>
+              <div>Radius: <span id="stateA-radius">0</span></div>
+            </div>
+            <div class="state-card" style="border-color: rgba(220,38,38,0.45);">
+              <h3>State B</h3>
+              <div>Center: (<span id="stateB-x">0</span>, <span id="stateB-y">0</span>)</div>
+              <div>Radius: <span id="stateB-radius">0</span></div>
+            </div>
+          </div>
+          <div id="chart-wrapper">
+            <h3 style="margin: 0 0 0.5rem;">Umbrella Sampling Free Energy</h3>
+            <canvas id="freeEnergyChart" height="220"></canvas>
+          </div>
+          <div>
+            <h3 style="margin: 0 0 0.5rem;">Sampling windows</h3>
+            <div id="umbrella-details"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.157.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+      const defaultConfig = __DEFAULT_CONFIG__;
+      let currentConfig = JSON.parse(JSON.stringify(defaultConfig));
+      let activeRequest = null;
+      let surfaceMesh = null;
+      let pathLine = null;
+      let boundaryLine = null;
+      let transitionMarker = null;
+      let stateMeshes = { A: null, B: null };
+      let verticalScale = 1.0;
+      let zMinimum = 0.0;
+      let freeEnergyChart = null;
+
+      const viewer = document.getElementById("viewer");
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(viewer.clientWidth, viewer.clientHeight);
+      viewer.appendChild(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0f172a);
+
+      const camera = new THREE.PerspectiveCamera(
+        48,
+        viewer.clientWidth / viewer.clientHeight,
+        0.1,
+        100
+      );
+      camera.position.set(7, 7, 7);
+
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
+      scene.add(ambientLight);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 0.9);
+      directionalLight.position.set(8, 12, 6);
+      scene.add(directionalLight);
+
+      const gridHelper = new THREE.GridHelper(12, 12, 0x334155, 0x1f2937);
+      scene.add(gridHelper);
+
+      function buildGaussianControls() {
+        const container = document.getElementById("gaussian-controls");
+        container.innerHTML = "";
+        currentConfig.gaussians.forEach((gaussian, index) => {
+          const fieldset = document.createElement("fieldset");
+          const legend = document.createElement("legend");
+          legend.textContent = `Gaussian ${index + 1}`;
+          fieldset.appendChild(legend);
+
+          const controls = [
+            { key: "amplitude", label: "Amplitude", min: -10, max: 10, step: 0.1 },
+            { key: "sigma", label: "Width (sigma)", min: 0.2, max: 3, step: 0.05 },
+            { key: "x0", label: "Center X", min: -4, max: 4, step: 0.1 },
+            { key: "y0", label: "Center Y", min: -4, max: 4, step: 0.1 },
+          ];
+
+          controls.forEach(({ key, label, min, max, step }) => {
+            const wrapper = document.createElement("div");
+            wrapper.className = "control";
+            const inputId = `g-${index}-${key}`;
+            const controlLabel = document.createElement("label");
+            controlLabel.setAttribute("for", inputId);
+            const output = document.createElement("output");
+            output.id = `${inputId}-value`;
+            output.textContent = gaussian[key].toFixed(2);
+            controlLabel.textContent = label;
+            controlLabel.appendChild(output);
+
+            const input = document.createElement("input");
+            input.type = "range";
+            input.min = String(min);
+            input.max = String(max);
+            input.step = String(step);
+            input.value = gaussian[key];
+            input.id = inputId;
+            input.addEventListener("input", (event) => {
+              const value = parseFloat(event.target.value);
+              currentConfig.gaussians[index][key] = value;
+              output.textContent = value.toFixed(2);
+            });
+            input.addEventListener("change", () => {
+              debounceFetch();
+            });
+
+            wrapper.appendChild(controlLabel);
+            wrapper.appendChild(input);
+            fieldset.appendChild(wrapper);
+          });
+
+          container.appendChild(fieldset);
+        });
+      }
+
+      let debounceTimer = null;
+      function debounceFetch() {
+        if (debounceTimer) {
+          clearTimeout(debounceTimer);
+        }
+        debounceTimer = setTimeout(() => {
+          requestSurfaceUpdate();
+        }, 180);
+      }
+
+      function requestSurfaceUpdate() {
+        if (activeRequest) {
+          activeRequest.abort();
+        }
+        const controller = new AbortController();
+        activeRequest = controller;
+        fetch("/api/pes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(currentConfig),
+          signal: controller.signal,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            activeRequest = null;
+            updateScene(data);
+          })
+          .catch((error) => {
+            if (error.name !== "AbortError") {
+              console.error("Failed to update PES", error);
+            }
+          });
+      }
+
+      function updateScene(data) {
+        const grid = data.grid;
+        zMinimum = grid.zMin;
+        const energyRange = Math.max(grid.zMax - grid.zMin, 1e-3);
+        verticalScale = 3.0 / energyRange;
+        updateSurface(grid);
+        updateStates(data.states);
+        updatePath(data.path, data.transitionState);
+        updateBoundary(data.boundary);
+        updateMeta(data);
+        updateUmbrella(data.umbrella);
+      }
+
+      function updateSurface(grid) {
+        if (surfaceMesh) {
+          scene.remove(surfaceMesh);
+          surfaceMesh.geometry.dispose();
+          surfaceMesh.material.dispose();
+        }
+        const xVals = grid.x;
+        const yVals = grid.y;
+        const zVals = grid.z;
+        const rows = yVals.length;
+        const cols = xVals.length;
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(rows * cols * 3);
+        let ptr = 0;
+        for (let row = 0; row < rows; row++) {
+          for (let col = 0; col < cols; col++) {
+            const height = (zVals[row][col] - zMinimum) * verticalScale;
+            positions[ptr++] = xVals[col];
+            positions[ptr++] = height;
+            positions[ptr++] = yVals[row];
+          }
+        }
+        const indices = [];
+        for (let row = 0; row < rows - 1; row++) {
+          for (let col = 0; col < cols - 1; col++) {
+            const a = row * cols + col;
+            const b = row * cols + (col + 1);
+            const c = (row + 1) * cols + col;
+            const d = (row + 1) * cols + (col + 1);
+            indices.push(a, c, b);
+            indices.push(b, c, d);
+          }
+        }
+        geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+
+        const material = new THREE.MeshStandardMaterial({
+          color: 0x5eead4,
+          emissive: 0x0f172a,
+          roughness: 0.35,
+          metalness: 0.05,
+          side: THREE.DoubleSide,
+        });
+
+        surfaceMesh = new THREE.Mesh(geometry, material);
+        scene.add(surfaceMesh);
+      }
+
+      function updateStates(states) {
+        const planeHeight = 0.02;
+        ["A", "B"].forEach((key) => {
+          const state = states[key];
+          if (!state) return;
+          if (stateMeshes[key]) {
+            scene.remove(stateMeshes[key]);
+          }
+          const color = key === "A" ? 0x0891b2 : 0xdc2626;
+          const geometry = new THREE.CircleGeometry(state.radius, 48);
+          const material = new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity: 0.35,
+            side: THREE.DoubleSide,
+          });
+          const mesh = new THREE.Mesh(geometry, material);
+          mesh.rotation.x = -Math.PI / 2;
+          mesh.position.set(state.x0, planeHeight, state.y0);
+          scene.add(mesh);
+          stateMeshes[key] = mesh;
+        });
+        document.getElementById("stateA-x").textContent = states.A.x0.toFixed(2);
+        document.getElementById("stateA-y").textContent = states.A.y0.toFixed(2);
+        document.getElementById("stateA-radius").textContent = states.A.radius.toFixed(2);
+        document.getElementById("stateB-x").textContent = states.B.x0.toFixed(2);
+        document.getElementById("stateB-y").textContent = states.B.y0.toFixed(2);
+        document.getElementById("stateB-radius").textContent = states.B.radius.toFixed(2);
+      }
+
+      function updatePath(path, transitionState) {
+        if (pathLine) {
+          scene.remove(pathLine);
+        }
+        if (transitionMarker) {
+          scene.remove(transitionMarker);
+        }
+        const points = path.map((point) =>
+          new THREE.Vector3(
+            point.x,
+            (point.z - zMinimum) * verticalScale,
+            point.y
+          )
+        );
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ color: 0xf97316, linewidth: 3 });
+        pathLine = new THREE.Line(geometry, material);
+        scene.add(pathLine);
+
+        if (transitionState) {
+          const sphereGeom = new THREE.SphereGeometry(0.12, 32, 32);
+          const sphereMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xb45309 });
+          transitionMarker = new THREE.Mesh(sphereGeom, sphereMat);
+          const height = (transitionState.energy - zMinimum) * verticalScale;
+          transitionMarker.position.set(
+            transitionState.x,
+            height,
+            transitionState.y
+          );
+          scene.add(transitionMarker);
+        }
+      }
+
+      function updateBoundary(boundaryPoints) {
+        if (boundaryLine) {
+          scene.remove(boundaryLine);
+        }
+        if (!boundaryPoints || boundaryPoints.length === 0) {
+          return;
+        }
+        const curvePoints = boundaryPoints.map((pt) =>
+          new THREE.Vector3(pt[0], 0.05, pt[1])
+        );
+        const geometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
+        const material = new THREE.LineDashedMaterial({
+          color: 0x38bdf8,
+          dashSize: 0.2,
+          gapSize: 0.12,
+          linewidth: 1,
+        });
+        boundaryLine = new THREE.Line(geometry, material);
+        boundaryLine.computeLineDistances();
+        scene.add(boundaryLine);
+      }
+
+      function updateMeta(data) {
+        const transition = data.transitionState;
+        if (transition) {
+          document.getElementById("transition-energy").textContent = transition.energy.toFixed(3);
+          const coordFraction = data.path.length > 1 ? (transition.index / (data.path.length - 1)).toFixed(2) : '0.00';
+          document.getElementById("transition-coordinate").textContent = `(${transition.x.toFixed(2)}, ${transition.y.toFixed(2)}) — s=${coordFraction}`;
+        }
+        document.getElementById("neb-iterations").textContent = data.meta.nebIterations;
+      }
+
+      function updateUmbrella(windows) {
+        if (!windows || windows.length === 0) {
+          return;
+        }
+        const reactionCoords = windows.map((window) => window.reactionCoordinate);
+        const freeEnergies = windows.map((window) => window.freeEnergy);
+        const ctx = document.getElementById("freeEnergyChart");
+        if (!freeEnergyChart) {
+          freeEnergyChart = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: reactionCoords,
+              datasets: [
+                {
+                  label: "Free energy (kT)",
+                  data: freeEnergies,
+                  fill: false,
+                  borderColor: "#2563eb",
+                  tension: 0.2,
+                },
+              ],
+            },
+            options: {
+              scales: {
+                x: {
+                  title: { display: true, text: "Reaction coordinate" },
+                },
+                y: {
+                  title: { display: true, text: "Free energy" },
+                },
+              },
+              plugins: {
+                legend: { display: false },
+              },
+            },
+          });
+        } else {
+          freeEnergyChart.data.labels = reactionCoords;
+          freeEnergyChart.data.datasets[0].data = freeEnergies;
+          freeEnergyChart.update();
+        }
+        const detailsContainer = document.getElementById("umbrella-details");
+        detailsContainer.innerHTML = "";
+        windows.forEach((window) => {
+          const summary = document.createElement("details");
+          const header = document.createElement("summary");
+          header.textContent = `Window ${window.index + 1} — reaction coordinate ${window.reactionCoordinate.toFixed(2)}`;
+          summary.appendChild(header);
+          const list = document.createElement("ul");
+          list.style.margin = "0.3rem 0 0.5rem";
+          list.style.paddingLeft = "1.1rem";
+          list.style.fontSize = "0.85rem";
+
+          const sample = window.samples[0];
+          const li = document.createElement("li");
+          li.textContent = `Representative sample at (${sample.x.toFixed(2)}, ${sample.y.toFixed(2)}), potential ${sample.potential.toFixed(2)}.`;
+          list.appendChild(li);
+
+          const li2 = document.createElement("li");
+          li2.textContent = `Estimated free energy: ${window.freeEnergy.toFixed(3)} kT.`;
+          list.appendChild(li2);
+
+          summary.appendChild(list);
+          detailsContainer.appendChild(summary);
+        });
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      function handleResize() {
+        const width = viewer.clientWidth;
+        const height = viewer.clientHeight;
+        renderer.setSize(width, height);
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+      }
+
+      window.addEventListener("resize", handleResize);
+      document.getElementById("reset-button").addEventListener("click", () => {
+        currentConfig = JSON.parse(JSON.stringify(defaultConfig));
+        buildGaussianControls();
+        requestSurfaceUpdate();
+      });
+
+      buildGaussianControls();
+      requestSurfaceUpdate();
+      animate();
+    </script>
+  </body>
+</html>
